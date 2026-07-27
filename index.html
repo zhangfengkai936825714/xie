@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>书写板</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; }
+
+body {
+    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    background: #222;
+    display: flex;
+}
+
+@media (max-width: 768px) {
+    body {
+        width: 100vh;
+        height: 100vw;
+        transform: rotate(-90deg);
+        transform-origin: center center;
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+}
+
+.container {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    background: #e0e0e0;
+}
+
+.toolbar {
+    width: 60px;
+    background: #333;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 15px 0;
+    gap: 10px;
+    flex-shrink: 0;
+    z-index: 100;
+}
+
+.tool-btn {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 6px;
+    background: #444;
+    color: #fff;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.tool-btn:hover { background: #555; }
+.tool-btn.active { background: #0078d7; }
+
+.divider { width: 30px; height: 1px; background: #555; margin: 5px 0; }
+
+.colors {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.color-btn {
+    width: 24px;
+    height: 24px;
+    border: 2px solid #333;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.color-btn:hover { transform: scale(1.2); }
+.color-btn.active { border-color: #fff; }
+
+.brush-size {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.size-btn {
+    border-radius: 50%;
+    border: 2px solid #666;
+    background: #fff;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.size-btn:hover { border-color: #0078d7; }
+.size-btn.active { border-color: #0078d7; background: #0078d7; }
+
+.canvas-area {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: #e0e0e0;
+}
+
+#canvasContainer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform-origin: center center;
+    transition: transform 0.1s;
+}
+
+.canvas-wrapper {
+    position: relative;
+}
+
+#bgCanvas, #drawCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: #fff;
+}
+
+#drawCanvas {
+    cursor: crosshair;
+    z-index: 10;
+}
+
+.bottom-bar {
+    position: absolute;
+    bottom: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    background: rgba(0,0,0,0.7);
+    padding: 10px 15px;
+    border-radius: 25px;
+    z-index: 200;
+}
+
+.bottom-btn {
+    background: transparent;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 6px 14px;
+    border-radius: 18px;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.bottom-btn:hover { background: rgba(255,255,255,0.2); }
+
+.zoom-info {
+    color: #fff;
+    font-size: 13px;
+    padding: 6px 12px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 15px;
+}
+
+input[type="file"] { display: none; }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <div class="toolbar">
+        <button class="tool-btn active" id="penBtn" title="铅笔">✏️</button>
+        <button class="tool-btn" id="highlighterBtn" title="荧光笔">🖍️</button>
+        <button class="tool-btn" id="brushBtn" title="毛笔">🖌️</button>
+        <button class="tool-btn" id="eraserBtn" title="橡皮擦">🧹</button>
+        
+        <div class="divider"></div>
+        
+        <div class="colors">
+            <div class="color-btn active" style="background:#000000;" onclick="setColor('#000000')"></div>
+            <div class="color-btn" style="background:#ff0000;" onclick="setColor('#ff0000')"></div>
+            <div class="color-btn" style="background:#ff9900;" onclick="setColor('#ff9900')"></div>
+            <div class="color-btn" style="background:#ffff00;" onclick="setColor('#ffff00')"></div>
+            <div class="color-btn" style="background:#00ff00;" onclick="setColor('#00ff00')"></div>
+            <div class="color-btn" style="background:#00ffff;" onclick="setColor('#00ffff')"></div>
+            <div class="color-btn" style="background:#0000ff;" onclick="setColor('#0000ff')"></div>
+            <div class="color-btn" style="background:#9900ff;" onclick="setColor('#9900ff')"></div>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <div class="brush-size">
+            <div class="size-btn" style="width:8px;height:8px;" onclick="setBrushSize(2)"></div>
+            <div class="size-btn active" style="width:12px;height:12px;" onclick="setBrushSize(5)"></div>
+            <div class="size-btn" style="width:16px;height:16px;" onclick="setBrushSize(10)"></div>
+            <div class="size-btn" style="width:20px;height:20px;" onclick="setBrushSize(15)"></div>
+            <div class="size-btn" style="width:24px;height:24px;" onclick="setBrushSize(25)"></div>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <button class="tool-btn" id="clearBtn" title="新建空白">📄</button>
+        <button class="tool-btn" id="saveBtn" title="保存">💾</button>
+        <button class="tool-btn" id="uploadBtn" title="打开图片">📷</button>
+        <input type="file" id="fileInput" accept="image/*">
+    </div>
+    
+    <div class="canvas-area">
+        <div id="canvasContainer">
+            <div class="canvas-wrapper">
+                <canvas id="bgCanvas"></canvas>
+                <canvas id="drawCanvas"></canvas>
+            </div>
+        </div>
+        
+        <div class="bottom-bar">
+            <button class="bottom-btn" onclick="rotateLeft()">🔄-</button>
+            <span class="zoom-info" id="rotateInfo">0°</span>
+            <button class="bottom-btn" onclick="rotateRight()">🔄+</button>
+            <div style="width:1px;height:20px;background:rgba(255,255,255,0.3);"></div>
+            <button class="bottom-btn" onclick="zoomOut()">🔍-</button>
+            <span class="zoom-info" id="zoomInfo">100%</span>
+            <button class="bottom-btn" onclick="zoomIn()">🔍+</button>
+            <button class="bottom-btn" onclick="resetView()">↺</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const bgCanvas = document.getElementById('bgCanvas');
+const bgCtx = bgCanvas.getContext('2d');
+const drawCanvas = document.getElementById('drawCanvas');
+const ctx = drawCanvas.getContext('2d');
+const container = document.getElementById('canvasContainer');
+
+let currentTool = 'pen';
+let currentColor = '#000000';
+let currentBrushSize = 5;
+let isDrawing = false;
+let lastX = 0;
+let lastY = 0;
+
+let scale = 1;
+let rotation = 0;
+let offsetX = 0;
+let offsetY = 0;
+let isDragging = false;
+let dragStartX = 0;
+let dragStartY = 0;
+
+let touchStartDist = 0;
+let touchStartAngle = 0;
+let touchStartScale = 1;
+let touchStartRotation = 0;
+
+function resizeCanvas() {
+    const canvasArea = document.querySelector('.canvas-area');
+    const w = canvasArea.clientWidth;
+    const h = canvasArea.clientHeight;
+    
+    bgCanvas.width = w;
+    bgCanvas.height = h;
+    drawCanvas.width = w;
+    drawCanvas.height = h;
+    
+    bgCtx.fillStyle = '#ffffff';
+    bgCtx.fillRect(0, 0, w, h);
+    
+    ctx.clearRect(0, 0, w, h);
+    
+    updateTransform();
+}
+
+function updateTransform() {
+    container.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale}) rotate(${rotation}deg)`;
+    document.getElementById('zoomInfo').textContent = Math.round(scale * 100) + '%';
+    document.getElementById('rotateInfo').textContent = Math.round(rotation) + '°';
+}
+
+function getCanvasPos(e) {
+    const rect = drawCanvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    const containerRect = container.getBoundingClientRect();
+    const centerX = containerRect.left + containerRect.width / 2;
+    const centerY = containerRect.top + containerRect.height / 2;
+    
+    const dx = clientX - centerX;
+    const dy = clientY - centerY;
+    
+    const rad = (rotation * Math.PI) / 180;
+    const cos = Math.cos(-rad);
+    const sin = Math.sin(-rad);
+    
+    const rotatedX = dx * cos - dy * sin;
+    const rotatedY = dx * sin + dy * cos;
+    
+    const x = rotatedX / scale + drawCanvas.width / 2;
+    const y = rotatedY / scale + drawCanvas.height / 2;
+    
+    return { x, y };
+}
+
+function startDrawing(e) {
+    e.preventDefault();
+    isDrawing = true;
+    const pos = getCanvasPos(e);
+    lastX = pos.x;
+    lastY = pos.y;
+    
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    
+    if (currentTool === 'brush') {
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        const size = currentBrushSize * (e.pressure || 0.5);
+        ctx.lineWidth = Math.max(1, size);
+        ctx.strokeStyle = currentColor;
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
+    }
+}
+
+function draw(e) {
+    if (!isDrawing) return;
+    e.preventDefault();
+    
+    const pos = getCanvasPos(e);
+    
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    
+    switch (currentTool) {
+        case 'pen':
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = currentBrushSize;
+            ctx.strokeStyle = currentColor;
+            ctx.globalAlpha = 1;
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            break;
+            
+        case 'highlighter':
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = currentBrushSize * 3;
+            ctx.strokeStyle = currentColor;
+            ctx.globalAlpha = 0.4;
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            break;
+            
+        case 'brush':
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            const pressure = e.pressure || 0.5;
+            const size = currentBrushSize * (0.3 + pressure * 0.7);
+            ctx.lineWidth = Math.max(1, size);
+            ctx.strokeStyle = currentColor;
+            ctx.globalAlpha = 0.8 + pressure * 0.2;
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            break;
+            
+        case 'eraser':
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = currentBrushSize * 2;
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            break;
+    }
+    
+    lastX = pos.x;
+    lastY = pos.y;
+}
+
+function stopDrawing() {
+    isDrawing = false;
+    ctx.closePath();
+    ctx.globalCompositeOperation = 'source-over';
+}
+
+function setTool(tool) {
+    currentTool = tool;
+    document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById(tool + 'Btn').classList.add('active');
+}
+
+function setColor(color) {
+    currentColor = color;
+    document.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+}
+
+function setBrushSize(size) {
+    currentBrushSize = size;
+    document.querySelectorAll('.size-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+}
+
+function clearCanvas() {
+    if (confirm('确定要新建空白草稿吗？')) {
+        bgCtx.fillStyle = '#ffffff';
+        bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+        ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+        resetView();
+    }
+}
+
+function saveCanvas() {
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = bgCanvas.width;
+    tempCanvas.height = bgCanvas.height;
+    const tempCtx = tempCanvas.getContext('2d');
+    
+    tempCtx.drawImage(bgCanvas, 0, 0);
+    tempCtx.drawImage(drawCanvas, 0, 0);
+    
+    const link = document.createElement('a');
+    link.download = 'drawing_' + Date.now() + '.png';
+    link.href = tempCanvas.toDataURL('image/png');
+    link.click();
+}
+
+function uploadImage() {
+    document.getElementById('fileInput').click();
+}
+
+document.getElementById('fileInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+            bgCtx.fillStyle = '#ffffff';
+            bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+            
+            const scaleX = bgCanvas.width / img.width;
+            const scaleY = bgCanvas.height / img.height;
+            const minScale = Math.min(scaleX, scaleY, 1);
+            
+            const x = (bgCanvas.width - img.width * minScale) / 2;
+            const y = (bgCanvas.height - img.height * minScale) / 2;
+            
+            bgCtx.drawImage(img, x, y, img.width * minScale, img.height * minScale);
+            
+            ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+            resetView();
+        };
+        img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+});
+
+function zoomIn() {
+    scale = Math.min(5, scale * 1.2);
+    updateTransform();
+}
+
+function zoomOut() {
+    scale = Math.max(0.2, scale / 1.2);
+    updateTransform();
+}
+
+function rotateLeft() {
+    rotation = (rotation - 90 + 360) % 360;
+    updateTransform();
+}
+
+function rotateRight() {
+    rotation = (rotation + 90) % 360;
+    updateTransform();
+}
+
+function resetView() {
+    scale = 1;
+    rotation = 0;
+    offsetX = 0;
+    offsetY = 0;
+    updateTransform();
+}
+
+function startDrag(e) {
+    if (!isDrawing && (e.button === 0 || e.touches)) {
+        isDragging = true;
+        dragStartX = e.touches ? e.touches[0].clientX : e.clientX;
+        dragStartY = e.touches ? e.touches[0].clientY : e.clientY;
+    }
+}
+
+function doDrag(e) {
+    if (!isDragging || isDrawing) return;
+    
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    offsetX += clientX - dragStartX;
+    offsetY += clientY - dragStartY;
+    
+    dragStartX = clientX;
+    dragStartY = clientY;
+    
+    updateTransform();
+}
+
+function stopDrag() {
+    isDragging = false;
+}
+
+function getTouchDistance(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+function getTouchAngle(touches) {
+    const dx = touches[1].clientX - touches[0].clientX;
+    const dy = touches[1].clientY - touches[0].clientY;
+    return Math.atan2(dy, dx) * 180 / Math.PI;
+}
+
+function handleTouchStart(e) {
+    if (e.touches.length === 2) {
+        e.preventDefault();
+        touchStartDist = getTouchDistance(e.touches);
+        touchStartAngle = getTouchAngle(e.touches);
+        touchStartScale = scale;
+        touchStartRotation = rotation;
+    }
+}
+
+function handleTouchMove(e) {
+    if (e.touches.length === 2 && !isDrawing) {
+        e.preventDefault();
+        
+        const dist = getTouchDistance(e.touches);
+        const angle = getTouchAngle(e.touches);
+        
+        const scaleFactor = dist / touchStartDist;
+        scale = Math.min(5, Math.max(0.2, touchStartScale * scaleFactor));
+        
+        const angleDiff = angle - touchStartAngle;
+        rotation = touchStartRotation + angleDiff;
+        
+        updateTransform();
+    }
+}
+
+document.getElementById('penBtn').addEventListener('click', () => setTool('pen'));
+document.getElementById('highlighterBtn').addEventListener('click', () => setTool('highlighter'));
+document.getElementById('brushBtn').addEventListener('click', () => setTool('brush'));
+document.getElementById('eraserBtn').addEventListener('click', () => setTool('eraser'));
+document.getElementById('clearBtn').addEventListener('click', clearCanvas);
+document.getElementById('saveBtn').addEventListener('click', saveCanvas);
+document.getElementById('uploadBtn').addEventListener('click', uploadImage);
+
+drawCanvas.addEventListener('mousedown', startDrawing);
+drawCanvas.addEventListener('mousemove', draw);
+drawCanvas.addEventListener('mouseup', stopDrawing);
+drawCanvas.addEventListener('mouseout', stopDrawing);
+
+drawCanvas.addEventListener('touchstart', function(e) {
+    if (e.touches.length === 1) {
+        startDrawing(e);
+    } else {
+        handleTouchStart(e);
+    }
+}, { passive: false });
+
+drawCanvas.addEventListener('touchmove', function(e) {
+    if (e.touches.length === 1) {
+        draw(e);
+    } else {
+        handleTouchMove(e);
+    }
+}, { passive: false });
+
+drawCanvas.addEventListener('touchend', stopDrawing);
+
+drawCanvas.addEventListener('mousedown', startDrag);
+drawCanvas.addEventListener('mousemove', doDrag);
+drawCanvas.addEventListener('mouseup', stopDrag);
+drawCanvas.addEventListener('mouseleave', stopDrag);
+
+window.addEventListener('resize', resizeCanvas);
+
+resizeCanvas();
+</script>
+</body>
+</html>
